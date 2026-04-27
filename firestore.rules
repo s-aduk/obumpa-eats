@@ -1,0 +1,99 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // 0. Global Safety Net
+    match /{document=**} {
+      allow read, write: if false;
+    }
+
+    // --- Helpers ---
+    function isSignedIn() { return request.auth != null; }
+    function isOwner(userId) { return isSignedIn() && request.auth.uid == userId; }
+    function isVerified() { return isSignedIn() && request.auth.token.email_verified == true; }
+    function incoming() { return request.resource.data; }
+    function existing() { return resource.data; }
+    function isValidId(id) { return id is string && id.size() <= 128 && id.matches('^[a-zA-Z0-9_\\-]+$'); }
+    
+    function isAdmin() { 
+      return isSignedIn() && exists(/databases/$(database)/documents/admins/$(request.auth.uid)); 
+    }
+
+    // --- Entities ---
+
+    match /users/{userId} {
+      function isValidUser(data) {
+        return data.uid == request.auth.uid &&
+               data.email is string && data.email.size() <= 256 &&
+               data.role in ['customer', 'admin'] &&
+               (data.displayName == null || (data.displayName is string && data.displayName.size() <= 128)) &&
+               (data.photoURL == null || (data.photoURL is string && data.photoURL.size() <= 512));
+      }
+
+      allow get: if isOwner(userId) || isAdmin();
+      allow list: if isAdmin();
+      allow create: if isOwner(userId) && isValidUser(incoming()) && incoming().role == 'customer';
+      allow update: if isOwner(userId) && isValidUser(incoming()) && 
+                       incoming().diff(existing()).affectedKeys().hasOnly(['displayName', 'photoURL']);
+    }
+
+    match /menuItems/{itemId} {
+      function isValidMenuItem(data) {
+        return data.name is string && data.name.size() <= 128 &&
+               data.price is number && data.price >= 0 &&
+               data.category is string && data.category.size() <= 64 &&
+               (data.description == null || (data.description is string && data.description.size() <= 1000)) &&
+               (data.image == null || (data.image is string && data.image.size() <= 512)) &&
+               (data.tags == null || (data.tags is list && data.tags.size() <= 10)) &&
+               (data.available is bool) &&
+               (data.isSignature is bool);
+      }
+
+      allow read: if true; 
+      allow write: if isAdmin();
+    }
+
+    match /reservations/{reservationId} {
+      function isValidReservation(data) {
+        return data.userId == request.auth.uid &&
+               isValidId(data.userId) &&
+               data.date is string && data.date.size() == 10 &&
+               data.time is string && data.time.size() <= 10 &&
+               data.guests is number && data.guests > 0 && data.guests <= 20 &&
+               (data.occasion == null || (data.occasion is string && data.occasion.size() <= 64)) &&
+               (data.specialRequest == null || (data.specialRequest is string && data.specialRequest.size() <= 500)) &&
+               data.status in ['pending', 'confirmed', 'cancelled', 'completed'] &&
+               data.createdAt == request.time;
+      }
+
+      allow get: if isSignedIn() && (resource.data.userId == request.auth.uid || isAdmin());
+      allow list: if isSignedIn() && (resource.data.userId == request.auth.uid || isAdmin());
+      allow create: if isVerified() && isValidReservation(incoming()) && incoming().status == 'pending';
+      allow update: if isSignedIn() && (
+        (isOwner(existing().userId) && incoming().diff(existing()).affectedKeys().hasOnly(['status']) && incoming().status == 'cancelled') ||
+        isAdmin()
+      );
+      allow delete: if isAdmin();
+    }
+
+    match /orders/{orderId} {
+      function isValidOrder(data) {
+        return data.userId == request.auth.uid &&
+               data.items is list && data.items.size() > 0 && data.items.size() <= 50 &&
+               data.total is number && data.total >= 0 &&
+               data.status in ['received', 'preparing', 'ready', 'delivered', 'cancelled'] &&
+               data.paymentStatus in ['pending', 'paid', 'failed'] &&
+               data.createdAt == request.time;
+      }
+
+      allow get: if isSignedIn() && (resource.data.userId == request.auth.uid || isAdmin());
+      allow list: if isSignedIn() && (resource.data.userId == request.auth.uid || isAdmin());
+      allow create: if isVerified() && isValidOrder(incoming()) && incoming().status == 'received';
+      allow update: if isAdmin();
+    }
+    
+    match /admins/{adminId} {
+      allow read: if isSignedIn();
+      allow write: if false;
+    }
+  }
+}
