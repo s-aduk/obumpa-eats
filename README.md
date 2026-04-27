@@ -2,7 +2,7 @@
 
 Obumpa Eats is a premium Ghanaian fine-dining web application that reimagines traditional heritage dishes through the lens of modern luxury. This platform offers a seamless digital experience for discerning food enthusiasts to explore an artisanal menu, make refined reservations, and order their favorite heritage-inspired meals.
 
-![Obumpa Eats Hero](https://images.unsplash.com/photo-1545093149-618ce3bcf49d?q=80&w=1200&auto=format&fit=crop)
+![Obumpa Eats Hero](https://res.cloudinary.com/dnqbicyyh/image/upload/v1777324886/oeui_movluh.png)
 
 ## 🌟 Features
 
