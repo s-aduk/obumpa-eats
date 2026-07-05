@@ -36,7 +36,7 @@ Obumpa Eats is a premium Ghanaian fine-dining web application that reimagines tr
 
 1. **Clone the repository:**
    ```bash
-   git clone https://github.com/your-username/obumpa-eats.git
+   git clone https://github.com/s-aduk/obumpa-eats.git
    cd obumpa-eats
    ```
 
